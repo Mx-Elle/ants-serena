@@ -6,6 +6,7 @@ from board import Entity, neighbors
 import numpy as np
 import numpy.typing as npt
 
+AntMove = tuple[tuple[int, int], tuple[int, int]]
 
 def valid_neighbors(
     row: int, col: int, walls: npt.NDArray[np.int_]
@@ -46,7 +47,7 @@ class SerenaBot:
     #     for hill in my_hills:
     #         self.walls #0s and 1s
     
-    def map_maker(self, goals: list, vision: set[tuple[tuple[int, int], Entity]]):
+    def map_maker(self, goals: list):
         fmap = defaultdict(lambda: float('inf')) # tuple of coordinates, value: distance from closest food
         frontier = deque() # list of coordinates
         for goal in goals:
@@ -57,55 +58,35 @@ class SerenaBot:
             coord = frontier.popleft()
 
             for neighbor in valid_neighbors(*coord, self.walls):
-                if neighbor in self.walls:
-                    continue
-                else:
-                    temp_dist = fmap[coord] + 1
-                    if temp_dist < fmap[neighbor]:
-                        fmap[neighbor] = temp_dist
-                        frontier.append(neighbor)
+                # if neighbor in self.walls:
+                #     continue
+                temp_dist = fmap[coord] + 1
+                if temp_dist < fmap[neighbor]:
+                    fmap[neighbor] = temp_dist
+                    frontier.append(neighbor)
         return fmap
-    
-    
-    def assign_ants(self, vision: set[tuple[tuple[int, int], Entity]], fmap: defaultdict):
-        ants = {coord for coord, kind in vision if kind == Entity.FRIENDLY_ANT}
-        food = [coord for coord, kind in vision if kind == Entity.FOOD]
-        pairs = {} # food, ant
 
-        used_ants = set()
-
-        for f in food:
-            frontier = [f]
-            visited = set()
-            while len(frontier) > 0:
-                cell = frontier.pop(0)
-                if cell in ants and cell not in used_ants:
-                    pairs[f] = cell
-                    used_ants.add(cell)
-                    break
-                valid = [
-                    v
-                    for v in valid_neighbors(*cell, self.walls)
-                ]
-                for neighbor in valid:
-                    if neighbor in visited:
-                        continue
-                    if fmap[neighbor] == fmap[cell] + 1:
-                        frontier.append(neighbor)
-                    visited.add(neighbor)
-
-        return pairs
+    def enough_guards(self, num_ants: int, ants: list, hills: list):
+        #strat: 20 min ants are guards, guarding radius = 6
+        guards = 0
+        guarding_radius = 6
+        if num_ants >= 30:
+            for ant in ants:
+                for hill in hills:
+                    if manhattan_dist(ant, hill) <= guarding_radius:
+                        guards += 1
+            
+            if guards < 20:
+                return guards
+        return -1
 
 
-    def next_step(self, pair: tuple[int, int], fmap: defaultdict):
-        valid = [
-                    v
-                    for v in valid_neighbors(*pair[0], self.walls) #tuple is ant, food
-                ]
+    def next_choice(self, ant: tuple[int, int], fmap: defaultdict):
+        valid = [v for v in valid_neighbors(*ant, self.walls)]
         best_value = float('inf')
-        next_step = pair[0]
+        next_step = None
         for v in valid:
-            if fmap[v] < next_step:
+            if fmap[v] < best_value:
                 best_value = fmap[v]
                 next_step = v
 
@@ -115,13 +96,58 @@ class SerenaBot:
         self,
         vision: set[tuple[tuple[int, int], Entity]],
         stored_food: int,
-        move_queue: Queue,
-    ):
-        ants = [coord for coord, kind in vision if kind == Entity.FRIENDLY_ANT]
+    ) -> set[AntMove]:
+        my_hills = [coord for coord, kind in vision if kind == Entity.FRIENDLY_HILL]
+        claimed_destinations = my_hills
+        my_ants = [coord for coord, kind in vision if kind == Entity.FRIENDLY_ANT]
         foods = [coord for coord, kind in vision if kind == Entity.FOOD]
-        fmap = self.map_maker(foods, vision)
-        food_pairings = self.assign_ants(vision, fmap)
-        for food, ant in food_pairings.items():
-            move_queue.put((self.next_step((ant, food), fmap)))
+        out = set()
+
+        foodmap = self.map_maker(foods)
+
+        # if self.enough_guards(len(my_ants), my_ants, my_hills) != -1:
+        #     ...
+
+        for ant in my_ants:
+            step = self.next_choice(ant, foodmap)
+            if step not in claimed_destinations:
+                claimed_destinations.append(step)
+                out.add((ant, step))
+        # print(f'moves: {out}')
+        return out
 
         # if len(ants) > len(foods)
+
+
+    # def assign_ants(self, vision: set[tuple[tuple[int, int], Entity]], fmap: defaultdict):
+    #     ants = {coord for coord, kind in vision if kind == Entity.FRIENDLY_ANT}
+    #     foods = [coord for coord, kind in vision if kind == Entity.FOOD]
+    #     pairs = {} # food, ant
+
+    #     # claimed_food = set()
+
+    #     # for food in foods:
+    #     #     if food not in claimed_food:
+                
+
+    #     # for f in food:
+    #     #     frontier = [f]
+    #     #     visited = set()
+    #     #     while len(frontier) > 0:
+    #     #         cell = frontier.pop(0)
+    #     #         if cell in ants and cell not in used_ants:
+    #     #             pairs[f] = cell
+    #     #             used_ants.add(cell)
+    #     #             break
+    #     #         valid = [
+    #     #             v
+    #     #             for v in valid_neighbors(*cell, self.walls)
+    #     #         ]
+    #     #         for neighbor in valid:
+    #     #             if neighbor in visited:
+    #     #                 continue
+    #     #             if fmap[neighbor] == fmap[cell] + 1:
+    #     #                 frontier.append(neighbor)
+    #     #             visited.add(neighbor)
+
+    #     # return pairs
