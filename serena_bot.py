@@ -87,8 +87,8 @@ class SerenaBot:
                 for v in valid_neighbors(*ant, self.walls)
                 if v not in claimed_destinations
             ]
-        if not valid:
-            claimed_destinations.add(ant)
+        # if not valid:
+        #     claimed_destinations.add(ant)
         best_value = float('inf')
         next_step = None
         for v in valid:
