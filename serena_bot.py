@@ -91,6 +91,21 @@ class SerenaBot:
                 next_step = v
 
         return next_step
+    
+    def explore(self, ant: tuple[int, int], fmap: defaultdict, hills: list, vision):
+        unexplored = [cell for cell in self.walls.shape if not vision]
+        explore_map = self.map_maker(unexplored)
+
+        valid = [v for v in valid_neighbors(*ant, self.walls)]
+        best_value = float('inf')
+        next_step = None
+        for v in valid:
+            if fmap[v] < best_value:
+                best_value = fmap[v]
+                next_step = v
+
+        return next_step
+
 
     def move_ants(
         self,
@@ -109,7 +124,10 @@ class SerenaBot:
         #     ...
 
         for ant in my_ants:
-            step = self.next_choice(ant, foodmap)
+            if foodmap[ant] >= 4:
+                step = self.explore(ant, foodmap, my_hills)
+            else:
+                step = self.next_choice(ant, foodmap)
             if step not in claimed_destinations:
                 claimed_destinations.append(step)
                 out.add((ant, step))
