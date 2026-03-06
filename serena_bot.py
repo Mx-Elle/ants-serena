@@ -81,8 +81,14 @@ class SerenaBot:
         return -1
 
 
-    def next_choice(self, ant: tuple[int, int], fmap: defaultdict):
-        valid = [v for v in valid_neighbors(*ant, self.walls)]
+    def next_choice(self, ant: tuple[int, int], fmap: defaultdict, claimed_destinations: list):
+        valid = [
+                v
+                for v in valid_neighbors(*ant, self.walls)
+                if v not in claimed_destinations
+            ]
+        if not valid:
+            claimed_destinations.add(ant)
         best_value = float('inf')
         next_step = None
         for v in valid:
@@ -92,19 +98,22 @@ class SerenaBot:
 
         return next_step
     
-    def explore(self, ant: tuple[int, int], hills: list, vision):
-        unexplored = [cell for cell in self.walls.shape if not vision]
-        explore_map = self.map_maker(unexplored)
+    def find_all_cells(self):
+        r, c = self.walls.shape
+        all_cells = []
+        for row in range(r):
+            for col in range(c):
+                if self.walls[row, col] == 0:
+                    all_cells.append((row, col))
 
-        valid = [v for v in valid_neighbors(*ant, self.walls)]
-        best_value = float('inf')
-        next_step = None
-        for v in valid:
-            if explore_map[v] < best_value:
-                best_value = explore_map[v]
-                next_step = v
+        return all_cells
+    
 
-        return next_step
+    def final_map(self, explore_map: defaultdict, food_map: defaultdict):
+        dijkstra = defaultdict(lambda: float('0'))
+        for cell in self.find_all_cells():
+            dijkstra[cell] = explore_map[cell] + food_map[cell]
+        return dijkstra
 
 
     def move_ants(
@@ -119,15 +128,18 @@ class SerenaBot:
         out = set()
 
         foodmap = self.map_maker(foods)
+        unexplored = []
+        for cell in self.find_all_cells():
+            if cell not in vision:
+                unexplored.append(cell)
+        explore_map = self.map_maker(unexplored)
 
         # if self.enough_guards(len(my_ants), my_ants, my_hills) != -1:
         #     ...
 
+        dijkstra = self.final_map(explore_map, foodmap)
         for ant in my_ants:
-            if foodmap[ant] >= 4:
-                step = self.explore(ant, foodmap, my_hills)
-            else:
-                step = self.next_choice(ant, foodmap)
+            step = self.next_choice(ant, dijkstra, claimed_destinations)
             if step not in claimed_destinations:
                 claimed_destinations.append(step)
                 out.add((ant, step))
