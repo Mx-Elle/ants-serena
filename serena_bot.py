@@ -92,7 +92,7 @@ class SerenaBot:
 
         return next_step
     
-    def explore(self, ant: tuple[int, int], fmap: defaultdict, hills: list, vision):
+    def explore(self, ant: tuple[int, int], hills: list, vision):
         unexplored = [cell for cell in self.walls.shape if not vision]
         explore_map = self.map_maker(unexplored)
 
@@ -100,8 +100,8 @@ class SerenaBot:
         best_value = float('inf')
         next_step = None
         for v in valid:
-            if fmap[v] < best_value:
-                best_value = fmap[v]
+            if explore_map[v] < best_value:
+                best_value = explore_map[v]
                 next_step = v
 
         return next_step
